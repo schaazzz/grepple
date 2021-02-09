@@ -11,15 +11,14 @@
 using namespace std;
 using namespace boost::program_options;
 
-inline const string VERSION = "0.1.0";
-inline const string AUTHOR = "Shahzeb Ihsan <shahzeb@gmail.com>";
-inline const string DESCRIPTION = "Gre++le: An academic exercise to develop a GREP clone in C++20";
+static inline const string VERSION = "0.1.0";
+static inline const string AUTHOR = "Shahzeb Ihsan <shahzeb@gmail.com>";
+static inline const string DESCRIPTION = "Gre++le: An academic exercise to develop a GREP clone in C++20";
 
 typedef struct {
    bool ignore_case;
    bool print_line_nums;
    bool use_color;
-
 } Flags;
 
 typedef struct {
@@ -40,6 +39,29 @@ static void print_usage(options_description& flags, bool print_about) {
    cout << flags << endl;
    fmt::print("---\n");
 
+}
+
+static void print_matched_line(Flags& flags, string prefix, int index, string line, int start, int end) {
+   auto prefix_color = fg(fmt::color::magenta);
+   auto line_num_color = fg(fmt::color::green);
+   auto match_color = fg(fmt::color::red);
+   auto semicolon_color = fg(fmt::color::cyan);
+
+   fmt::print("color: {}\n", flags.use_color);
+
+   if (!prefix.empty()) {
+      fmt::text_style style;
+
+      if (flags.use_color) {
+         style = prefix_color;
+      }
+      fmt::print(style, "{}", prefix);
+   
+      if (flags.use_color) {
+         style = semicolon_color;
+      }
+      fmt::print(style, ":\n");
+   }
 }
 
 static std::unique_ptr<Config> parse_args(int argc, const char *argv[]) {
@@ -84,6 +106,7 @@ static std::unique_ptr<Config> parse_args(int argc, const char *argv[]) {
    else {
       fmt::print("Error: Pattern cannot be empty!\n");
       print_usage(flags, false);
+      return std::unique_ptr<Config>(nullptr);
    }
 
    if (vm.count("files")) {
@@ -106,12 +129,13 @@ static std::unique_ptr<Config> parse_args(int argc, const char *argv[]) {
 }
 
 int main(int argc, const char *argv[]) {
-   //fmt::print(fg(fmt::color::magenta), "This is the start of the program...\n", 42);
    std::unique_ptr<Config> config = parse_args(argc, argv);
 
    if (config == nullptr) {
       exit(0);
    }
+
+   print_matched_line(config->flags, "test.tst", 0, "", 0, 0);
 
    fmt::print("files.len: {}\n", config->files.size());
 
