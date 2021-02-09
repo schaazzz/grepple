@@ -43,7 +43,7 @@ static void print_usage(options_description& flags, bool print_about) {
 
 static void print_matched_line(Flags& flags, string prefix, int index, string line, int start, int end) {
    auto prefix_color = fg(fmt::color::magenta);
-   auto line_num_color = fg(fmt::color::green);
+   auto line_num_color = fg(fmt::color::lime_green);
    auto match_color = fg(fmt::color::red);
    auto semicolon_color = fg(fmt::color::cyan);
 
@@ -60,7 +60,21 @@ static void print_matched_line(Flags& flags, string prefix, int index, string li
       if (flags.use_color) {
          style = semicolon_color;
       }
-      fmt::print(style, ":\n");
+      fmt::print(style, ":");
+   }
+
+   if (flags.print_line_nums) {
+      fmt::text_style style;
+
+      if (flags.use_color) {
+         style = line_num_color;
+      }
+      fmt::print(style, "{}", index);
+
+      if (flags.use_color) {
+         style = semicolon_color;
+      }
+      fmt::print(style, ":\n");    
    }
 }
 
