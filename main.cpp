@@ -42,16 +42,15 @@ static void print_usage(options_description& flags, bool print_about) {
 }
 
 static void print_matched_line(Flags& flags, string prefix, int index, string line, int start, int end) {
+   auto default_color = fmt::text_style();
    auto prefix_color = fg(fmt::color::magenta);
    auto line_num_color = fg(fmt::color::lime_green);
    auto match_color = fg(fmt::color::red);
    auto semicolon_color = fg(fmt::color::cyan);
 
-   fmt::print("color: {}\n", flags.use_color);
+   fmt::text_style style = default_color;
 
    if (!prefix.empty()) {
-      fmt::text_style style;
-
       if (flags.use_color) {
          style = prefix_color;
       }
@@ -64,7 +63,7 @@ static void print_matched_line(Flags& flags, string prefix, int index, string li
    }
 
    if (flags.print_line_nums) {
-      fmt::text_style style;
+      style = default_color;
 
       if (flags.use_color) {
          style = line_num_color;
@@ -74,7 +73,19 @@ static void print_matched_line(Flags& flags, string prefix, int index, string li
       if (flags.use_color) {
          style = semicolon_color;
       }
-      fmt::print(style, ":\n");    
+      fmt::print(style, ":");    
+   }
+
+   if (flags.use_color) {
+      style = default_color;
+      fmt::print(style, "{}", line.substr(0, start));
+      style = match_color;
+      fmt::print(style, "{}", line.substr(start , end - start));
+      style = default_color;
+      fmt::print(style, "{}\n", line.substr(end, line.length() - end));
+   }
+   else {
+      fmt::print("{}\n", line);
    }
 }
 
@@ -142,6 +153,142 @@ static std::unique_ptr<Config> parse_args(int argc, const char *argv[]) {
    return std::make_unique<Config>(config);
 }
 
+///////////////////////////////////////////////
+//template<string LIMIT>
+class Rambo {
+   struct Line {
+      bool valid;
+      string str;
+   };
+
+   private:
+      int tool;
+      friend class Iterator;
+
+   public:
+      Rambo(int tool_) {
+         tool = tool_;
+      }
+
+      class Iterator: public std::iterator<std::input_iterator_tag, string, long, const string*, string> {
+         private:
+            Line line;
+            Rambo* brambo;
+         public:
+            explicit Iterator(Rambo* r) {
+               line = {.valid = false};
+               brambo = r;
+            }
+        
+            Iterator& operator++() { 
+               if (std::getline(std::cin, line.str)) {
+                  line.valid = true;
+                  std::stringstream linestream(line.str);
+                  fmt::print("tool: {}\n", brambo->tool);
+               }
+
+               return *this;
+            }
+        
+            Iterator operator++(int) {
+               Iterator retval = *this;
+               ++(*this);
+               return retval;
+            }
+
+            bool operator==(Iterator other) const {
+               return line.str == other.line.str;
+            }
+
+            bool operator!=(Iterator other) {
+               if ((line.str != "") || !line.valid) {
+                  return true;
+               }
+               else {
+                  return false;
+               }
+
+               line.valid = false;
+            }
+
+            reference operator*() const {
+               return line.str;
+            }
+
+      };
+
+   void Up() {
+      tool++;
+   }
+
+   Iterator begin() {
+      return Iterator(this);
+   }
+
+   Iterator end() {
+      return Iterator(this);
+   }
+};
+///////////////////////////////////////////////
+
+//////////////////////////////////////////////
+template<long LIMIT>
+class Rando {
+   public:
+      class Iterator: public std::iterator<std::input_iterator_tag, long, long, const long*, long> {
+         private:
+            long num;
+            long count;
+
+         public:
+            explicit Iterator() {
+               num= 0;
+               count = 0;
+               srand((unsigned)time(0));
+            }
+        
+            Iterator& operator++() { 
+               num = rand() % 500;
+               count++;
+               return *this;
+            }
+        
+            Iterator operator++(int) {
+               Iterator retval = *this;
+               ++(*this);
+               return retval;
+            }
+
+            bool operator==(Iterator other) const {
+               return num == other.num;
+            }
+
+            bool operator!=(Iterator other) const {
+               if (count < LIMIT) {
+                  return true;
+               }
+               else {
+                  return false;
+               }
+            }
+
+            reference operator*() const {
+               return num;
+            }
+
+      };
+
+   Iterator begin() {
+      return Iterator();
+   }
+
+   Iterator end() {
+      return Iterator();
+   }
+};
+//////////////////////////////////////////////
+
+
 int main(int argc, const char *argv[]) {
    std::unique_ptr<Config> config = parse_args(argc, argv);
 
@@ -149,9 +296,20 @@ int main(int argc, const char *argv[]) {
       exit(0);
    }
 
-   print_matched_line(config->flags, "test.tst", 0, "", 0, 0);
+   print_matched_line(config->flags, "test.tst", 0, "This is a test string...", 3, 10);
 
    fmt::print("files.len: {}\n", config->files.size());
 
    fmt::print("config.pattern: {}\n", config->pattern);
+
+   auto r = Rambo(42);
+   for (auto a: r) {
+      r.Up();
+      std::cout << a << endl;
+   }
+
+   //    for (auto w : sayHelloToWorld())
+   // {
+   //     std::cout << w;
+   // }
 }
