@@ -1,7 +1,10 @@
 #include <iostream>
 #include <vector>
+#include <atomic>
 
 #include <boost/program_options.hpp>
+#include <boost/fiber/all.hpp>
+
 #include <fmt/core.h>
 #include <fmt/color.h>
 
@@ -10,6 +13,7 @@
 
 using namespace std;
 using namespace boost::program_options;
+using namespace boost::fibers;
 
 static inline const string VERSION = "0.1.0";
 static inline const string AUTHOR = "Shahzeb Ihsan <shahzeb@gmail.com>";
@@ -38,7 +42,129 @@ static void print_usage(options_description& flags, bool print_about) {
 
    cout << flags << endl;
    fmt::print("---\n");
+}
 
+///////////////////////////////////////////////
+//template<string LIMIT>
+class Rambo {
+   struct Line {
+      bool valid;
+      string str;
+   };
+
+   private:
+      int tool;
+      friend class Iterator;
+
+   public:
+      Rambo(int tool_) {
+         tool = tool_;
+      }
+
+      class Iterator: public std::iterator<std::input_iterator_tag, string, long, const string*, string> {
+         private:
+            Line line;
+            Rambo* brambo;
+         public:
+            explicit Iterator(Rambo* r) {
+               line = {.valid = false};
+               brambo = r;
+            }
+        
+            Iterator& operator++() { 
+               if (std::getline(std::cin, line.str)) {
+                  line.valid = true;
+                  std::stringstream linestream(line.str);
+               }
+
+               return *this;
+            }
+        
+            Iterator operator++(int) {
+               Iterator retval = *this;
+               ++(*this);
+               return retval;
+            }
+
+            bool operator==(Iterator other) const {
+               return line.str == other.line.str;
+            }
+
+            bool operator!=(Iterator other) {
+               if ((line.str != "") || !line.valid) {
+                  return true;
+               }
+               else {
+                  return false;
+               }
+
+               line.valid = false;
+            }
+
+            reference operator*() const {
+               return line.str;
+            }
+
+      };
+
+   void Up() {
+      tool++;
+   }
+
+   Iterator begin() {
+      return Iterator(this);
+   }
+
+   Iterator end() {
+      return Iterator(this);
+   }
+};
+///////////////////////////////////////////////
+
+struct LineSource {
+};
+
+static void process(LineSource source, Flags& flags, string pattern) {
+   typedef boost::fibers::condition_variable cv;
+   typedef boost::fibers::buffered_channel<tuple<uint32_t, uint32_t>> chan_res;
+   typedef boost::fibers::buffered_channel<string> chan_line;
+   
+   atomic<bool> exit(false);
+   chan_res main_rx{2};
+   chan_line main_tx{2};
+
+   fiber fb(
+      std::bind(
+         [&] (chan_res& tx, chan_line& rx, atomic<bool>& exit) {
+            string line = "";
+            uint32_t i = 0, j = 5;
+            while(true) {
+               rx.pop_wait_for(line, 5ms);
+               fmt::print("fiber: {}\n", line);
+               tx.push({i, j});
+               i++; j++;
+
+               if(exit.load()) {
+                  break;
+               }
+            }
+         },
+         std::ref(main_rx),
+         std::ref(main_tx),
+         std::ref(exit)
+      )
+   );
+
+   auto r = Rambo(42);
+   tuple<uint32_t, uint32_t> res;
+   for (auto a: r) {
+      main_tx.push(a);
+      main_rx.pop_wait_for(res, 5ms);
+      fmt::print("while: {}, {}\n", get<0>(res), get<1>(res));
+   }
+
+   exit = true;
+   fb.join();
 }
 
 static void print_matched_line(Flags& flags, string prefix, int index, string line, int start, int end) {
@@ -101,7 +227,6 @@ static std::unique_ptr<Config> parse_args(int argc, const char *argv[]) {
       ("color", "use markers to highlight the matching strings")
       ("help", "print this help menu");
 
-
    options_description hidden {""};
    hidden.add_options()
       ("pattern", value<string>(), "p p p")
@@ -152,84 +277,6 @@ static std::unique_ptr<Config> parse_args(int argc, const char *argv[]) {
 
    return std::make_unique<Config>(config);
 }
-
-///////////////////////////////////////////////
-//template<string LIMIT>
-class Rambo {
-   struct Line {
-      bool valid;
-      string str;
-   };
-
-   private:
-      int tool;
-      friend class Iterator;
-
-   public:
-      Rambo(int tool_) {
-         tool = tool_;
-      }
-
-      class Iterator: public std::iterator<std::input_iterator_tag, string, long, const string*, string> {
-         private:
-            Line line;
-            Rambo* brambo;
-         public:
-            explicit Iterator(Rambo* r) {
-               line = {.valid = false};
-               brambo = r;
-            }
-        
-            Iterator& operator++() { 
-               if (std::getline(std::cin, line.str)) {
-                  line.valid = true;
-                  std::stringstream linestream(line.str);
-                  fmt::print("tool: {}\n", brambo->tool);
-               }
-
-               return *this;
-            }
-        
-            Iterator operator++(int) {
-               Iterator retval = *this;
-               ++(*this);
-               return retval;
-            }
-
-            bool operator==(Iterator other) const {
-               return line.str == other.line.str;
-            }
-
-            bool operator!=(Iterator other) {
-               if ((line.str != "") || !line.valid) {
-                  return true;
-               }
-               else {
-                  return false;
-               }
-
-               line.valid = false;
-            }
-
-            reference operator*() const {
-               return line.str;
-            }
-
-      };
-
-   void Up() {
-      tool++;
-   }
-
-   Iterator begin() {
-      return Iterator(this);
-   }
-
-   Iterator end() {
-      return Iterator(this);
-   }
-};
-///////////////////////////////////////////////
 
 //////////////////////////////////////////////
 template<long LIMIT>
@@ -298,18 +345,6 @@ int main(int argc, const char *argv[]) {
 
    print_matched_line(config->flags, "test.tst", 0, "This is a test string...", 3, 10);
 
-   fmt::print("files.len: {}\n", config->files.size());
-
-   fmt::print("config.pattern: {}\n", config->pattern);
-
-   auto r = Rambo(42);
-   for (auto a: r) {
-      r.Up();
-      std::cout << a << endl;
-   }
-
-   //    for (auto w : sayHelloToWorld())
-   // {
-   //     std::cout << w;
-   // }
+   LineSource source;
+   process(source, config->flags, "");
 }
