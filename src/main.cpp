@@ -8,16 +8,19 @@
 #include <fmt/core.h>
 #include <fmt/color.h>
 
-//import line_grep;
-//import line_src;
+#include "line_grep.h"
 
-using namespace std;
 using namespace boost::program_options;
 using namespace boost::fibers;
 
-static inline const string VERSION = "0.1.0";
-static inline const string AUTHOR = "Shahzeb Ihsan <shahzeb@gmail.com>";
-static inline const string DESCRIPTION = "Gre++le: An academic exercise to develop a GREP clone in C++20";
+using namespace std::chrono_literals;
+
+using std::atomic;
+using std::vector;
+
+static inline const std::string VERSION = "0.1.0";
+static inline const std::string AUTHOR = "Shahzeb Ihsan <shahzeb@gmail.com>";
+static inline const std::string DESCRIPTION = "Gre++le: An academic exercise to develop a GREP clone in C++20";
 
 typedef struct {
    bool ignore_case;
@@ -27,8 +30,8 @@ typedef struct {
 
 typedef struct {
    Flags flags;
-   string pattern;
-   vector<string> files;
+   std::string pattern;
+   vector<std::string> files;
 } Config;
 
 static void print_usage(options_description& flags, bool print_about) {
@@ -40,134 +43,11 @@ static void print_usage(options_description& flags, bool print_about) {
       fmt::print("\n");
    }
 
-   cout << flags << endl;
+   std::cout << flags << std::endl;
    fmt::print("---\n");
 }
 
-///////////////////////////////////////////////
-//template<string LIMIT>
-class Rambo {
-   struct Line {
-      bool valid;
-      string str;
-   };
-
-   private:
-      int tool;
-      friend class Iterator;
-
-   public:
-      Rambo(int tool_) {
-         tool = tool_;
-      }
-
-      class Iterator: public std::iterator<std::input_iterator_tag, string, long, const string*, string> {
-         private:
-            Line line;
-            Rambo* brambo;
-         public:
-            explicit Iterator(Rambo* r) {
-               line = {.valid = false};
-               brambo = r;
-            }
-        
-            Iterator& operator++() { 
-               if (std::getline(std::cin, line.str)) {
-                  line.valid = true;
-                  std::stringstream linestream(line.str);
-               }
-
-               return *this;
-            }
-        
-            Iterator operator++(int) {
-               Iterator retval = *this;
-               ++(*this);
-               return retval;
-            }
-
-            bool operator==(Iterator other) const {
-               return line.str == other.line.str;
-            }
-
-            bool operator!=(Iterator other) {
-               if ((line.str != "") || !line.valid) {
-                  return true;
-               }
-               else {
-                  return false;
-               }
-
-               line.valid = false;
-            }
-
-            reference operator*() const {
-               return line.str;
-            }
-
-      };
-
-   void Up() {
-      tool++;
-   }
-
-   Iterator begin() {
-      return Iterator(this);
-   }
-
-   Iterator end() {
-      return Iterator(this);
-   }
-};
-///////////////////////////////////////////////
-
-struct LineSource {
-};
-
-static void process(LineSource source, Flags& flags, string pattern) {
-   typedef boost::fibers::condition_variable cv;
-   typedef boost::fibers::buffered_channel<tuple<uint32_t, uint32_t>> chan_res;
-   typedef boost::fibers::buffered_channel<string> chan_line;
-   
-   atomic<bool> exit(false);
-   chan_res main_rx{2};
-   chan_line main_tx{2};
-
-   fiber fb(
-      std::bind(
-         [&] (chan_res& tx, chan_line& rx, atomic<bool>& exit) {
-            string line = "";
-            uint32_t i = 0, j = 5;
-            while(true) {
-               rx.pop_wait_for(line, 5ms);
-               fmt::print("fiber: {}\n", line);
-               tx.push({i, j});
-               i++; j++;
-
-               if(exit.load()) {
-                  break;
-               }
-            }
-         },
-         std::ref(main_rx),
-         std::ref(main_tx),
-         std::ref(exit)
-      )
-   );
-
-   auto r = Rambo(42);
-   tuple<uint32_t, uint32_t> res;
-   for (auto a: r) {
-      main_tx.push(a);
-      main_rx.pop_wait_for(res, 5ms);
-      fmt::print("while: {}, {}\n", get<0>(res), get<1>(res));
-   }
-
-   exit = true;
-   fb.join();
-}
-
-static void print_matched_line(Flags& flags, string prefix, int index, string line, int start, int end) {
+static void print_matched_line(Flags& flags, std::string prefix, int index, std::string line, int start, int end) {
    auto default_color = fmt::text_style();
    auto prefix_color = fg(fmt::color::magenta);
    auto line_num_color = fg(fmt::color::lime_green);
@@ -215,6 +95,135 @@ static void print_matched_line(Flags& flags, string prefix, int index, string li
    }
 }
 
+///////////////////////////////////////////////
+//template<string LIMIT>
+class Rambo {
+   struct Line {
+      bool valid;
+      std::string str;
+   };
+
+   private:
+      int tool;
+      friend class Iterator;
+
+   public:
+      Rambo(int tool_) {
+         tool = tool_;
+      }
+
+      class Iterator: public std::iterator<std::input_iterator_tag, Rambo::Line, long, const Rambo::Line*, Rambo::Line> {
+         private:
+            Line line;
+            Rambo* brambo;
+         public:
+            explicit Iterator(Rambo* r) {
+               line = {.valid = false};
+               brambo = r;
+            }
+        
+            Iterator& operator++() { 
+               if (std::getline(std::cin, line.str)) {
+                  line.valid = true;
+                  std::stringstream linestream(line.str);
+               }
+
+               return *this;
+            }
+
+            Iterator operator++(int) {
+               Iterator retval = *this;
+               ++(*this);
+               return retval;
+            }
+
+            bool operator==(Iterator other) const {
+               return line.str == other.line.str;
+            }
+
+            bool operator!=(Iterator other) {
+               if ((line.str != "") || !line.valid) {
+                  return true;
+               }
+               else {
+                  return false;
+               }
+
+               line.valid = false;
+            }
+
+            reference operator*() const {
+               return line;
+            }
+      };
+
+   void Up() {
+      tool++;
+   }
+
+   Iterator begin() {
+      return Iterator(this);
+   }
+
+   Iterator end() {
+      return Iterator(this);
+   }
+};
+///////////////////////////////////////////////
+
+struct LineSource {
+};
+
+static void process(LineSource source, Flags& flags, std::string pattern) {
+   typedef boost::fibers::condition_variable cv;
+   typedef boost::fibers::buffered_channel<std::tuple<uint32_t, uint32_t>> chan_res;
+   typedef boost::fibers::buffered_channel<std::string> chan_line;
+   
+   atomic<bool> exit(false);
+   chan_res main_rx{2};
+   chan_line main_tx{2};
+
+   auto grep = LineGrep::build(pattern, flags.ignore_case);
+   if (grep == std::nullopt) {
+      fmt::print(stderr, "Error: Invalid regular expression!\n");
+      return;
+   }
+
+   fiber fb(
+      std::bind(
+         [&] (chan_res& tx, chan_line& rx, atomic<bool>& exit) {
+            std::string line = "";
+            while(true) {
+               if (boost::fibers::channel_op_status::success == rx.pop_wait_for(line, 5ms)) {
+                  fmt::print("go fuckyourself\n");
+                  tx.push(grep->search(line));
+               }
+
+               if(exit.load()) {
+                  break;
+               }
+            }
+         },
+         std::ref(main_rx),
+         std::ref(main_tx),
+         std::ref(exit)
+      )
+   );
+
+   auto r = Rambo(42);
+   std::tuple<uint32_t, uint32_t> res;
+   for (auto a: r) {
+      if (a.valid) {
+         main_tx.push(a.str);
+         main_rx.pop(res);
+         print_matched_line(flags, "", 0, a.str, std::get<0>(res), std::get<1>(res));
+      }
+   }
+
+   exit = true;
+   fb.join();
+}
+
 static std::unique_ptr<Config> parse_args(int argc, const char *argv[]) {
    options_description flags {
       "Usage: rusty_grep [OPTION]... PATTERNS [FILE]...\n"
@@ -229,8 +238,8 @@ static std::unique_ptr<Config> parse_args(int argc, const char *argv[]) {
 
    options_description hidden {""};
    hidden.add_options()
-      ("pattern", value<string>(), "p p p")
-      ("files", value<vector<string>>(), "f f f");
+      ("pattern", value<std::string>(), "p p p")
+      ("files", value<vector<std::string>>(), "f f f");
    
    options_description all {""};
    all.add(flags).add(hidden);
@@ -251,7 +260,7 @@ static std::unique_ptr<Config> parse_args(int argc, const char *argv[]) {
    }
 
    if (vm.count("pattern")) {
-      config.pattern = vm["pattern"].as<string>();
+      config.pattern = vm["pattern"].as<std::string>();
    }
    else {
       fmt::print("Error: Pattern cannot be empty!\n");
@@ -260,7 +269,7 @@ static std::unique_ptr<Config> parse_args(int argc, const char *argv[]) {
    }
 
    if (vm.count("files")) {
-      config.files = vm["files"].as<vector<string>>();
+      config.files = vm["files"].as<vector<std::string>>();
    }
 
    if (vm.count("i")) {
@@ -278,73 +287,18 @@ static std::unique_ptr<Config> parse_args(int argc, const char *argv[]) {
    return std::make_unique<Config>(config);
 }
 
-//////////////////////////////////////////////
-template<long LIMIT>
-class Rando {
-   public:
-      class Iterator: public std::iterator<std::input_iterator_tag, long, long, const long*, long> {
-         private:
-            long num;
-            long count;
-
-         public:
-            explicit Iterator() {
-               num= 0;
-               count = 0;
-               srand((unsigned)time(0));
-            }
-        
-            Iterator& operator++() { 
-               num = rand() % 500;
-               count++;
-               return *this;
-            }
-        
-            Iterator operator++(int) {
-               Iterator retval = *this;
-               ++(*this);
-               return retval;
-            }
-
-            bool operator==(Iterator other) const {
-               return num == other.num;
-            }
-
-            bool operator!=(Iterator other) const {
-               if (count < LIMIT) {
-                  return true;
-               }
-               else {
-                  return false;
-               }
-            }
-
-            reference operator*() const {
-               return num;
-            }
-
-      };
-
-   Iterator begin() {
-      return Iterator();
-   }
-
-   Iterator end() {
-      return Iterator();
-   }
-};
-//////////////////////////////////////////////
-
-
 int main(int argc, const char *argv[]) {
    std::unique_ptr<Config> config = parse_args(argc, argv);
 
    if (config == nullptr) {
       exit(0);
    }
-
-   print_matched_line(config->flags, "test.tst", 0, "This is a test string...", 3, 10);
-
-   LineSource source;
-   process(source, config->flags, "");
+   
+   if (config->files.empty) {
+      LineSource source;
+      process(source, config->flags, config->pattern);
+   }
+   else {
+      std::cout << config->files << std::endl;
+   }
 }
