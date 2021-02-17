@@ -195,7 +195,6 @@ static void process(LineSource source, Flags& flags, std::string pattern) {
             std::string line = "";
             while(true) {
                if (boost::fibers::channel_op_status::success == rx.pop_wait_for(line, 5ms)) {
-                  fmt::print("go fuckyourself\n");
                   tx.push(grep->search(line));
                }
 
