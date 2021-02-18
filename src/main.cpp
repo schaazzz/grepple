@@ -133,15 +133,15 @@ static void process(LineSource&& source, Flags& flags, std::string pattern) {
 
    uint32_t start, end;
    std::tuple<uint32_t, uint32_t> search_result;
-   for (auto result: source) {
-      if (result.valid) {
-         main_tx.push(result.line);
+   for (auto line_result: source) {
+      if (line_result.valid) {
+         main_tx.push(line_result.line);
          main_rx.pop(search_result);
 
          start = std::get<0>(search_result);
          end = std::get<1>(search_result);
          if (start != end) {
-            print_matched_line(flags, result.prefix, result.index, result.line, start, end);
+            print_matched_line(flags, line_result.prefix, line_result.index, line_result.line, start, end);
          }
       }
    }
