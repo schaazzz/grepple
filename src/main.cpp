@@ -9,6 +9,7 @@
 #include <fmt/color.h>
 
 #include "line_grep.h"
+#include "line_src.h"
 
 using namespace boost::program_options;
 using namespace boost::fibers;
@@ -95,86 +96,7 @@ static void print_matched_line(Flags& flags, std::string prefix, int index, std:
    }
 }
 
-///////////////////////////////////////////////
-//template<string LIMIT>
-class Rambo {
-   struct Line {
-      bool valid;
-      std::string str;
-   };
-
-   private:
-      int tool;
-      friend class Iterator;
-
-   public:
-      Rambo(int tool_) {
-         tool = tool_;
-      }
-
-      class Iterator: public std::iterator<std::input_iterator_tag, Rambo::Line, long, const Rambo::Line*, Rambo::Line> {
-         private:
-            Line line;
-            Rambo* brambo;
-         public:
-            explicit Iterator(Rambo* r) {
-               line = {.valid = false};
-               brambo = r;
-            }
-        
-            Iterator& operator++() { 
-               if (std::getline(std::cin, line.str)) {
-                  line.valid = true;
-                  std::stringstream linestream(line.str);
-               }
-
-               return *this;
-            }
-
-            Iterator operator++(int) {
-               Iterator retval = *this;
-               ++(*this);
-               return retval;
-            }
-
-            bool operator==(Iterator other) const {
-               return line.str == other.line.str;
-            }
-
-            bool operator!=(Iterator other) {
-               if ((line.str != "") || !line.valid) {
-                  return true;
-               }
-               else {
-                  return false;
-               }
-
-               line.valid = false;
-            }
-
-            reference operator*() const {
-               return line;
-            }
-      };
-
-   void Up() {
-      tool++;
-   }
-
-   Iterator begin() {
-      return Iterator(this);
-   }
-
-   Iterator end() {
-      return Iterator(this);
-   }
-};
-///////////////////////////////////////////////
-
-struct LineSource {
-};
-
-static void process(LineSource source, Flags& flags, std::string pattern) {
+static void process(LineSource&& source, Flags& flags, std::string pattern) {
    typedef boost::fibers::condition_variable cv;
    typedef boost::fibers::buffered_channel<std::tuple<uint32_t, uint32_t>> chan_res;
    typedef boost::fibers::buffered_channel<std::string> chan_line;
@@ -209,13 +131,18 @@ static void process(LineSource source, Flags& flags, std::string pattern) {
       )
    );
 
-   auto r = Rambo(42);
-   std::tuple<uint32_t, uint32_t> res;
-   for (auto a: r) {
-      if (a.valid) {
-         main_tx.push(a.str);
-         main_rx.pop(res);
-         print_matched_line(flags, "", 0, a.str, std::get<0>(res), std::get<1>(res));
+   uint32_t start, end;
+   std::tuple<uint32_t, uint32_t> search_result;
+   for (auto result: source) {
+      if (result.valid) {
+         main_tx.push(result.line);
+         main_rx.pop(search_result);
+
+         start = std::get<0>(search_result);
+         end = std::get<1>(search_result);
+         if (start != end) {
+            print_matched_line(flags, result.prefix, result.index, result.line, start, end);
+         }
       }
    }
 
@@ -293,11 +220,14 @@ int main(int argc, const char *argv[]) {
       exit(0);
    }
    
-   if (config->files.empty) {
-      LineSource source;
-      process(source, config->flags, config->pattern);
+   if (config->files.empty()) {
+      process(LinesFromStdin(), config->flags, config->pattern);
    }
    else {
-      std::cout << config->files << std::endl;
+      fmt::print("[ ");
+      for(const auto& f: config->files) {
+         fmt::print("{} ", f);
+      }
+      fmt::print("]\n");
    }
 }
